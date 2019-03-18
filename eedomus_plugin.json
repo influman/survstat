@@ -1,0 +1,166 @@
+{
+	"plugin_id": "survstat",
+	"name_fr": "Surveillance Station",
+	"icon": "survstation.png",
+	"version": "1.0",
+	"creation_date": "2019-03-17",
+	"modification_date": "2019-03-18",
+	"author": "Influman",
+	"description_fr": "Controle du Surveillance Station de <a target='_blank' href='https://www.synology.com/fr-fr/solution/surveillance_small_business'>Synology</a> via son API ",
+	"description_en": "Synology Surveillance Station control plugin",
+	"forum_link": "https://forum.eedomus.com/viewtopic.php?f=50&t=8314",
+	"parameters":
+	[
+		{
+			"parameter": "IP", 
+			"description": "Adresse IP locale",
+			"xtype": "textfield",
+			"default_value": "192.168.0.",
+			"field": "width:130, allowBlank:false, maskRe:/[0-9.]/, regex:/^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])$/, regexText:'Adresse IP invalide [0-255].[0-255].[0-255].[0-255]'"
+		},
+		{
+			"parameter": "LOGIN",
+			"description": "Login",
+			"default_value": "",
+			"xtype": "textfield",
+			"field": "allowBlank: false, width: 250"
+		},
+		{
+			"parameter": "PASS",
+			"description": "Password",
+			"default_value": "",
+			"xtype": "textfield",
+			"field": "allowBlank: false, width: 250"
+		},		
+		{
+			"parameter": "CREATE",
+			"description": "Monitoring CPU/RAM/LAN ?",
+			"xtype": "combo",
+			"field": "width:50, allowBlank:false, store:[[1, 'Oui'], [0, 'Non']], triggerAction: 'all'"
+		}
+  ],
+	"scripts":
+	[
+		{
+			"name": "survstation.php"
+		}
+	],
+	"devices":
+	[
+		{
+			"device_id": "statut",
+			"module_id": "51",
+			"type": "http",
+			"name_fr": "Surveillance Station - Statut",
+			"icon": "survstation.png",
+			"utilisation_id": "35",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "string",
+				"ignore_errors": 3,
+				"RAW_URL": "http://localhost/script/?exec=survstation.php&action=getstatus&server=[VAR1]",
+				"RAW_XPATH": "/SURVSTATION/STATUS",
+				"POLLING": "5"
+			}
+		},
+		{
+			"device_id": "controlst",
+			"parent_id": "statut",
+			"module_id": "41",
+			"type": "http",
+			"name_fr": "Surveillance Station - Controle",
+			"icon": "survstation.png",
+			"utilisation_id": "43",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "list",
+				"ignore_errors": 3,
+				"RAW_URL": "",
+				"RAW_XPATH": "",
+				"POLLING": "5"
+			},
+			"values":
+			[
+				{ "value": "0", "description": "Stop All Recording", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=allstop" },
+				{ "value": "1", "description": "Start All Recording", "icon": "survstation_start.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=allstart" },
+				{ "value": "2", "description": "Start Recording Cam #1", "icon": "survstation_start.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=start&camid=1" },
+				{ "value": "3", "description": "Stop Recording Cam #1", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=stop&camid=1" },
+				{ "value": "4", "description": "Start Recording Cam #2", "icon": "survstation_start.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=start&camid=2" },
+				{ "value": "5", "description": "Stop Recording Cam #2", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=stop&camid=2" },
+				{ "value": "30", "description": "Snapshot on FTP Cam #1", "icon": "survstation_ftp.png", "http_url": "http://localhost/script/?exec=survstation.php&action=snapftp&server=[VAR1]", "http_type": "GET",  "http_params": "&ftp=[VAR2]&camid=1" },
+				{ "value": "31", "description": "Snapshot on FTP Cam #2", "icon": "survstation_ftp.png", "http_url": "http://localhost/script/?exec=survstation.php&action=snapftp&server=[VAR1]", "http_type": "GET",  "http_params": "&ftp=[VAR2]&camid=2" },
+				{ "value": "100", "description": "Shutdown NAS", "icon": "survstation_sd.png", "http_url": "http://localhost/script/?exec=survstation.php&action=shutdown&server=[VAR1]", "http_type": "GET",  "http_params": "" },
+				{ "value": "101", "description": "Reboot NAS", "icon": "survstation_sd.png", "http_url": "http://localhost/script/?exec=survstation.php&action=reboot&server=[VAR1]", "http_type": "GET",  "http_params": "" }
+			]
+		},
+		{
+			"device_id": "monitcpu",
+			"parent_id": "statut",
+			"create" : "plugin.parameters.CREATE",
+			"module_id": "51",
+			"type": "http",
+			"name_fr": "Surveillance Station - CPU",
+			"icon": "survstation_cpu.png",
+			"utilisation_id": "35",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "string",
+				"ignore_errors": 3,
+				"RAW_URL": "http://localhost/script/?exec=survstation.php&action=monitoring&server=[VAR1]",
+				"RAW_XPATH": "/SURVSTATION/CPU",
+				"POLLING": "5"
+			}
+		},
+		{
+			"device_id": "monitram",
+			"parent_id": "statut",
+			"create" : "plugin.parameters.CREATE",
+			"module_id": "51",
+			"type": "http",
+			"name_fr": "Surveillance Station - RAM",
+			"icon": "survstation_ram.png",
+			"utilisation_id": "35",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "string",
+				"ignore_errors": 3,
+				"RAW_URL": "http://localhost/script/?exec=survstation.php&action=monitoring&server=[VAR1]",
+				"RAW_XPATH": "/SURVSTATION/RAM",
+				"POLLING": "5"
+			}
+		},
+		{
+			"device_id": "monitlan",
+			"parent_id": "statut",
+			"create" : "plugin.parameters.CREATE",
+			"module_id": "51",
+			"type": "http",
+			"name_fr": "Surveillance Station - LAN",
+			"icon": "survstation_lan.png",
+			"utilisation_id": "35",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "string",
+				"ignore_errors": 3,
+				"RAW_URL": "http://localhost/script/?exec=survstation.php&action=monitoring&server=[VAR1]",
+				"RAW_XPATH": "/SURVSTATION/LAN",
+				"POLLING": "5"
+			}
+		}
+	]
+}
