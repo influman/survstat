@@ -1,7 +1,7 @@
 <?php
 	$xml = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>";      
 	//***********************************************************************************************************************
-	// V1.0 : Surveillance Station / Influman 2019
+	// V1.2 : Surveillance Station / Influman 2019
 	//SYNO.API.Info
 	$vInfo = 1;
 	//SYNO.API.Auth
@@ -10,14 +10,21 @@
 	$vCamera = 6;
 	//SYNO.SurveillanceStation.ExternalRecording
 	$vExternalRecording = 2;
+	//SYNO.SurveillanceStation.PTZ
+	$vPTZ = 1;
 	// recuperation des infos depuis la requete
 	$action = getArg("action", true, ''); 
 	$server = getArg("server", true);
 	$value = getArg("value", false);
 	$camid = getArg("camid", false);
+	$presetid = getArg("presetid", false);
 	$ftp = getArg("ftp",false, '');
 	// API DU PERIPHERIQUE APPELANT LE SCRIPT
     $periph_id = getArg('eedomus_controller_module_id'); 
+	// Code erreur authentification
+	$tab_error_auth = array(100 => "Unknown error", 101 => "The account parameter is not specified", 400 => "Invalid password",
+						401 => "Guest or disabled account", 402 => "Permission denied", 403 => "One time password not specified",
+						404 => "One time password authenticate failed");
 	
 	if ($action == '' ) {
 		die();
@@ -63,7 +70,9 @@
 	$return_auth = sdk_json_decode($result_auth);
 	$test_success = $return_auth['success'];
 	if($test_success != 1){
-		$xml .= "<STATUS>Authentication error ".$return_auth['error']['code']." (passwords with special character not supported)</STATUS>";
+		$xml .= "<STATUS>Authentication error ".$return_auth['error']['code']." ".$tab_error_auth[$return_auth['error']['code']];
+		$xml .= "</STATUS>";
+		//(passwords with special character not supported)</STATUS>";
 	} else {
 		//authentication successful
 		$sid = $return_auth['data']['sid']; // Code de session
@@ -133,13 +142,27 @@
 				$name_cam = $cam['name'];
 				$model_cam = $cam['model'];
 				$statut_cam = $cam['camStatus'];
+				$host_cam = $cam['host'].":".$cam['port'];
+				$resolution = $cam['resolution'];
+				$ptz = "";
+				if ($cam['ptzCap'] != 0) {
+					$ptz = " PTZ";
+				}
 				if ($cam['enabled'] != 1) {
 					$statut_cam .= "-Disabled";
-					$listcam .= "|x";
+					if ($listcam == "") {
+						$listcam = "x";
+					} else {
+						$listcam .= "|x";
+					}
 				} else {
-					$listcam .= "|".$id_cam;
+					if ($listcam == "") {
+						$listcam = $id_cam;
+					} else {
+						$listcam .= "|".$id_cam;
+					}
 				}
-				$xml .= "<CAM_ID_".$id_cam.">".$name_cam." (".$statut_cam.") ".$model_cam."</CAM_ID_".$id_cam.">";
+				$xml .= "<CAM_ID_".$id_cam.">".$name_cam." ".$resolution.$ptz." (".$statut_cam.") ".$host_cam." ".$model_cam."</CAM_ID_".$id_cam.">";
 			}
 			$status = "Connected - ".$nbcam." cameras ".$listcam;
 			$xml .= "<STATUS>".$status."</STATUS>";
@@ -176,11 +199,11 @@
 		}
 		// Cameras
 		if ($action == "controlcam") {
+			$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera";
+			$result_api = httpQuery($url_api, 'GET');
+			$return_api = sdk_json_decode($result_api);
+			$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
 			if ($value == "allstop") {
-				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera";
-				$result_api = httpQuery($url_api, 'GET');
-				$return_api = sdk_json_decode($result_api);
-				$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
 				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
 				$result_cam = httpQuery($url_cam, 'GET');
 				$return_cam = sdk_json_decode($result_cam);
@@ -198,10 +221,6 @@
 				$xml .= $result_stop;
 			}
 			if ($value == "allstart") {
-				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera";
-				$result_api = httpQuery($url_api, 'GET');
-				$return_api = sdk_json_decode($result_api);
-				$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
 				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
 				$result_cam = httpQuery($url_cam, 'GET');
 				$return_cam = sdk_json_decode($result_cam);
@@ -235,6 +254,148 @@
 				$url_start = $http."://".$server."/webapi/".$path."?api=SYNO.SurveillanceStation.ExternalRecording&method=Record&version=".$vExternalRecording."&cameraId=".$camid."&action=start&_sid=".$sid;
 				$result_start = httpQuery($url_start, 'GET');
 				$xml .= $result_start;
+			}
+			if ($value == "alldisable") {
+				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
+				$result_cam = httpQuery($url_cam, 'GET');
+				$return_cam = sdk_json_decode($result_cam);
+				$list_enable = "";
+				foreach($return_cam['data']['cameras'] as $cam){
+					$id_cam = $cam['id'];
+					if($cam['enabled'] == 1 ) {
+						if ($list_enable != "") {
+							$list_enable .= ",";
+						}
+						$list_enable .= $id_cam;
+					}
+				}
+				if ($list_enable != "") {
+					$url_dis = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Disable&_sid=".$sid."&cameraIds=".$list_enable;
+					$result_dis = httpQuery($url_dis, 'GET');
+				}
+				$xml .= $result_dis;
+			}
+			if ($value == "allenable") {
+				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
+				$result_cam = httpQuery($url_cam, 'GET');
+				$return_cam = sdk_json_decode($result_cam);
+				$list_disable = "";
+				foreach($return_cam['data']['cameras'] as $cam){
+					$id_cam = $cam['id'];
+					if($cam['enabled'] != 1 ) {
+						if ($list_disable != "") {
+							$list_disable .= ",";
+						}
+						$list_disable .= $id_cam;
+					}
+				}
+				if ($list_disable != "") {
+					$url_ena = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Enable&_sid=".$sid."&cameraIds=".$list_disable;
+					$result_ena = httpQuery($url_ena, 'GET');
+				}
+				$xml .= $result_dis;
+			}
+			if ($value == "disable") {
+				$url_dis = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Disable&_sid=".$sid."&cameraIds=".$camid;
+				$result_dis = httpQuery($url_dis, 'GET');
+				$xml .= $result_dis;
+			}
+			if ($value == "enable") {
+				$url_ena = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Enable&_sid=".$sid."&cameraIds=".$camid;
+			    $result_ena = httpQuery($url_ena, 'GET');
+				$xml .= $result_ena;
+			}
+		}
+		// PTZ status
+		if ($action == "ptzstatus") {
+			// Path de SYNO.SurveillanceStation.Camera
+			$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera";
+			$result_api = httpQuery($url_api, 'GET');
+			$return_api = sdk_json_decode($result_api);
+			$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
+			$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.PTZ";
+			$result_api = httpQuery($url_api, 'GET');
+			$return_api = sdk_json_decode($result_api);
+			$ptzpath = $return_api['data']['SYNO.SurveillanceStation.PTZ']['path'];
+			// Accès SYNO.SurveillanceStation.Camera pour liste détaillées des caméras
+			$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
+			$result_cam = httpQuery($url_cam, 'GET');
+			$return_cam = sdk_json_decode($result_cam);
+			$ptzcap = false;
+			$list_cam = array();
+			$i = 0;
+			foreach($return_cam['data']['cameras'] as $cam){
+				$id_cam = $cam['id'];
+				$nb_preset = $cam['presetNum'];
+				if ($cam['ptzCap'] != 0) {
+					$ptzcap = true;
+					if ($cam['enabled'] == 1) {
+						$list_cam[$i]['id'] = $id_cam;
+						$presets = "";
+						$presets_ids = "";
+						// Accès SYNO.SurveillanceStation.PTZ pour liste détaillées des presets
+						$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=ListPreset&cameraId=".$id_cam."&_sid=".$sid;
+						$result_ptz = httpQuery($url_ptz, 'GET');
+						$return_ptz = sdk_json_decode($result_ptz);
+						foreach($return_ptz['data']['presets'] as $preset){
+							$id_preset = $preset['id'];
+							$name_preset = $preset['name'];
+							$presets_ids .= $id_preset."|";
+							$presets .= $name_preset."(".$id_preset.") | ";
+						}
+						$list_cam[$i]['presets'] = $presets_ids;
+						$xml .= "<CAM_ID_".$id_cam.">".$nb_preset." presets ".$presets."</CAM_ID_".$id_cam.">";
+						$i++;
+					}
+				}
+			}
+			if ($ptzcap) {
+				$status = "PTZ ";
+				foreach($list_cam as $cam) {
+					if ($cam['presets'] == "") {
+						$status .= "Cam ".$cam['id']." +*";
+					} else {
+						$status .= "Cam ".$cam['id']." > ".$cam['presets']." +*";
+					}
+				}
+			} else {
+				$status = "PTZ not available";
+			}
+			$xml .= "<PTZSTATUS>".$status."</PTZSTATUS>";
+		}
+		// PTZ controle
+		if ($action == "controlptz") {
+			$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.PTZ";
+			$result_api = httpQuery($url_api, 'GET');
+			$return_api = sdk_json_decode($result_api);
+			$ptzpath = $return_api['data']['SYNO.SurveillanceStation.PTZ']['path'];
+			if ($value == "gopreset") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=GoPreset&cameraId=".$camid."&presetId=".$presetid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "moveup") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Move&direction=up&speed=1&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "movedown") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Move&direction=down&speed=1&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "moveleft") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Move&direction=left&speed=1&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "moveright") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Move&direction=right&speed=1&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "zoomin") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Zoom&control=in&moveType=Start&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
+			}
+			if ($value == "zoomout") {
+				$url_ptz = $http."://".$server."/webapi/".$ptzpath."?version=".$vPTZ."&api=SYNO.SurveillanceStation.PTZ&method=Zoom&control=in&moveType=Start&cameraId=".$camid."&_sid=".$sid;
+				$result_ptz = httpQuery($url_ptz, 'GET');
 			}
 		}
 		//logout

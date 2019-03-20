@@ -2,9 +2,9 @@
 	"plugin_id": "survstat",
 	"name_fr": "Surveillance Station",
 	"icon": "survstation.png",
-	"version": "1.0",
+	"version": "1.2",
 	"creation_date": "2019-03-17",
-	"modification_date": "2019-03-18",
+	"modification_date": "2019-03-20",
 	"author": "Influman",
 	"description_fr": "Controle du Surveillance Station de <a target='_blank' href='https://www.synology.com/fr-fr/solution/surveillance_small_business'>Synology</a> via son API ",
 	"description_en": "Synology Surveillance Station control plugin",
@@ -15,7 +15,7 @@
 			"parameter": "IP", 
 			"description": "Adresse IP locale",
 			"xtype": "textfield",
-			"default_value": "192.168.0.",
+			"default_value": "192.168.",
 			"field": "width:130, allowBlank:false, maskRe:/[0-9.]/, regex:/^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])$/, regexText:'Adresse IP invalide [0-255].[0-255].[0-255].[0-255]'"
 		},
 		{
@@ -31,6 +31,12 @@
 			"default_value": "",
 			"xtype": "textfield",
 			"field": "allowBlank: false, width: 250"
+		},	
+		{
+			"parameter": "PTZ",
+			"description": "Gestion du PTZ ?",
+			"xtype": "combo",
+			"field": "width:50, allowBlank:false, store:[[1, 'Oui'], [0, 'Non']], triggerAction: 'all'"
 		},		
 		{
 			"parameter": "CREATE",
@@ -95,8 +101,30 @@
 				{ "value": "5", "description": "Stop Recording Cam #2", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=stop&camid=2" },
 				{ "value": "30", "description": "Snapshot on FTP Cam #1", "icon": "survstation_ftp.png", "http_url": "http://localhost/script/?exec=survstation.php&action=snapftp&server=[VAR1]", "http_type": "GET",  "http_params": "&ftp=[VAR2]&camid=1" },
 				{ "value": "31", "description": "Snapshot on FTP Cam #2", "icon": "survstation_ftp.png", "http_url": "http://localhost/script/?exec=survstation.php&action=snapftp&server=[VAR1]", "http_type": "GET",  "http_params": "&ftp=[VAR2]&camid=2" },
+				{ "value": "40", "description": "Disable All Cameras", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=alldisable" },
+				{ "value": "41", "description": "Enable All Cameras", "icon": "survstation_start.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=allenable" },
+				{ "value": "42", "description": "Enable Cam #1", "icon": "survstation_start.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=enable&camid=1" },
+				{ "value": "43", "description": "Disable Cam #1", "icon": "survstation_stop.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlcam&server=[VAR1]", "http_type": "GET",  "http_params": "&value=disable&camid=1" },
 				{ "value": "100", "description": "Shutdown NAS", "icon": "survstation_sd.png", "http_url": "http://localhost/script/?exec=survstation.php&action=shutdown&server=[VAR1]", "http_type": "GET",  "http_params": "" },
 				{ "value": "101", "description": "Reboot NAS", "icon": "survstation_sd.png", "http_url": "http://localhost/script/?exec=survstation.php&action=reboot&server=[VAR1]", "http_type": "GET",  "http_params": "" }
+			],
+			"macros":
+			[
+				{ "name": "All Recording [x]sec", "dynamic_value": 60,
+					"actions": 
+					[ 
+						{ "wait": 0, "wait_unit": "sec", "action_type": "a", "value": 1 }, 
+						{ "wait": 60, "dynamic": true, "wait_unit": "sec", "action_type": "a", "value": 0 } 
+					] 
+				},
+			
+				{ "name": "Cam #1 Recording [x]sec", "dynamic_value": 60,
+					"actions": 
+					[ 
+						{ "wait": 0, "wait_unit": "sec", "action_type": "a", "value": 2 }, 
+						{ "wait": 60, "dynamic": true, "wait_unit": "sec", "action_type": "a", "value": 3 } 
+					] 
+				}
 			]
 		},
 		{
@@ -161,6 +189,57 @@
 				"RAW_XPATH": "/SURVSTATION/LAN",
 				"POLLING": "5"
 			}
+		},
+		{
+			"device_id": "ptzstat",
+			"parent_id": "statut",
+			"create" : "plugin.parameters.PTZ",
+			"module_id": "51",
+			"type": "http",
+			"name_fr": "Surveillance Station - PTZ Statut",
+			"icon": "survstation_ptz.png",
+			"utilisation_id": "35",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "string",
+				"ignore_errors": 3,
+				"RAW_URL": "http://localhost/script/?exec=survstation.php&action=ptzstatus&server=[VAR1]",
+				"RAW_XPATH": "/SURVSTATION/PTZSTATUS change('+*', '<br>')",
+				"POLLING": "5"
+			}
+		},
+		{
+			"device_id": "controlptz",
+			"parent_id": "statut",
+			"module_id": "41",
+			"type": "http",
+			"name_fr": "Surveillance Station - Controle PTZ",
+			"icon": "survstation_ptz.png",
+			"utilisation_id": "43",
+			"parameters":
+			{
+				"VAR1": "http,plugin.parameters.IP:5000,plugin.parameters.LOGIN,plugin.parameters.PASS",
+				"VAR2": "camera.eedomus.com,ftplogin,ftpmdp",
+				"VAR3": "",
+				"value_type": "list",
+				"ignore_errors": 3,
+				"RAW_URL": "",
+				"RAW_XPATH": "",
+				"POLLING": "5"
+			},
+			"values":
+			[
+				{ "value": "0", "description": "Move Up Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=moveup&camid=1" },
+				{ "value": "1", "description": "Move Down Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=movedown&camid=1" },
+				{ "value": "2", "description": "Move Left Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=moveleft&camid=1" },
+				{ "value": "3", "description": "Move Right Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=moveright&camid=1" },
+				{ "value": "4", "description": "Zoom In Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=zoomin&camid=1" },
+				{ "value": "5", "description": "Zoom Out Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=zoomout&camid=1" },
+				{ "value": "10", "description": "Preset #100 Cam #1", "icon": "survstation_ptz.png", "http_url": "http://localhost/script/?exec=survstation.php&action=controlptz&server=[VAR1]", "http_type": "GET",  "http_params": "&value=gopreset&camid=1&presetid=100" }
+			]
 		}
 	]
 }
