@@ -1,13 +1,15 @@
 <?php
 	$xml = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>";      
 	//***********************************************************************************************************************
-	// V1.2 : Surveillance Station / Influman 2019
+	// V1.3 : Surveillance Station / Influman 2019
 	//SYNO.API.Info
 	$vInfo = 1;
 	//SYNO.API.Auth
 	$vAuth = 2;
 	//SYNO.SurveillanceStation.Camera
 	$vCamera = 6;
+	//SYNO.SurveillanceStation.Camera.Event
+	$vCameraEvent = 1;
 	//SYNO.SurveillanceStation.ExternalRecording
 	$vExternalRecording = 2;
 	//SYNO.SurveillanceStation.PTZ
@@ -22,10 +24,10 @@
 	// API DU PERIPHERIQUE APPELANT LE SCRIPT
     $periph_id = getArg('eedomus_controller_module_id'); 
 	// Code erreur authentification
-	$tab_error_auth = array(100 => "Unknown error", 101 => "The account parameter is not specified", 400 => "Invalid password",
-						401 => "Guest or disabled account", 402 => "Permission denied", 403 => "One time password not specified",
+	$tab_error_auth = array(100 => "Unknown error", 101 => "The account parameter is not specified", 102 => "API does not exist", 103 => "Method does not exist",
+						104 => "This API version is not supported", 105 => "Insufficient user privilege", 106 => "Connection time out", 107 => "Multiple login detected",
+						400 => "Invalid password", 401 => "Guest or disabled account", 402 => "Permission denied", 403 => "One time password not specified",
 						404 => "One time password authenticate failed");
-	
 	if ($action == '' ) {
 		die();
 	}
@@ -34,7 +36,7 @@
 	$http = $tab_param[0];
 	$server = $tab_param[1];
 	$login = $tab_param[2];
-	$pass = $tab_param[3];
+	$pass = utf8_decode($tab_param[3]);
 	$ftpok = false;
 	if ($ftp != '') {
 		$tab_param = explode(",",$ftp);
@@ -43,8 +45,6 @@
 		$ftp_pass = $tab_param[2];
 		$ftpok = true;
 	}
-	
-	
 	// Accès au Surveillance Station
 	//Get SYNO.API.Auth Path (recommended by Synology for further update)
     $url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.API.Auth";
@@ -53,7 +53,7 @@
 	$test_success = $return_api['success'];
 	if($test_success != 1){
 		if($test_sucess == 0){
-			$xml .= "<STATUS>Error code API ".$return_api['error']['code']."</STATUS>";
+			$xml .= "<STATUS>Error code API ".$return_api['error']['code']." ".$tab_error_auth[$return_api['error']['code']]."</STATUS>";
 		} else {
 			$xml .= "<STATUS>Host access error ".$result_api."</STATUS>";
 		}
@@ -65,7 +65,7 @@
     $path = $return_api['data']['SYNO.API.Auth']['path'];
 	$auth_path = $path;
 	// Login and creating sid
-	$url_auth = $http."://".$server."/webapi/".$auth_path."?api=SYNO.API.Auth&method=Login&version=".$vAuth."&account=".$login."&passwd=".$pass."&session=SurveillanceStation&format=sid";
+	$url_auth = $http."://".$server."/webapi/".$auth_path."?api=SYNO.API.Auth&method=Login&version=".$vAuth."&account=".$login."&passwd=".urlencode($pass)."&session=SurveillanceStation&format=sid";
 	$result_auth = httpQuery($url_auth, 'GET');
 	$return_auth = sdk_json_decode($result_auth);
 	$test_success = $return_auth['success'];
@@ -203,6 +203,7 @@
 			$result_api = httpQuery($url_api, 'GET');
 			$return_api = sdk_json_decode($result_api);
 			$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
+			
 			if ($value == "allstop") {
 				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
 				$result_cam = httpQuery($url_cam, 'GET');
@@ -298,12 +299,103 @@
 			if ($value == "disable") {
 				$url_dis = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Disable&_sid=".$sid."&cameraIds=".$camid;
 				$result_dis = httpQuery($url_dis, 'GET');
-				$xml .= $result_dis;
+				$return_dis = sdk_json_decode($result_dis);
+				if($return_dis['success'] != 1){
+					if($return_dis['success'] == 0){
+						$xml .= "<STATUS>Error Camera code ".$return_dis['error']['code']." ".$tab_error_auth[$return_dis['error']['code']]."</STATUS>";
+					} else {
+						$xml .= $result_dis;
+					}
+				} else {
+					$xml .= $result_dis;
+				}
+				
 			}
 			if ($value == "enable") {
 				$url_ena = $http."://".$server."/webapi/".$path."?version=".$vCamera."&api=SYNO.SurveillanceStation.Camera&method=Enable&_sid=".$sid."&cameraIds=".$camid;
 			    $result_ena = httpQuery($url_ena, 'GET');
+				$return_ena = sdk_json_decode($result_ena);
+				if($return_ena['success'] != 1){
+					if($return_ena['success'] == 0){
+						$xml .= "<STATUS>Error Camera code ".$return_ena['error']['code']." ".$tab_error_auth[$return_ena['error']['code']]."</STATUS>";
+					} else {
+						$xml .= $result_ena;
+					}
+				} else {
+					$xml .= $result_ena;
+				}
+			}
+			if ($value == "allmddisable") {
+				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera.Event";
+				$result_api = httpQuery($url_api, 'GET');
+				$return_api = sdk_json_decode($result_api);
+				$pathevent = $return_api['data']['SYNO.SurveillanceStation.Camera.Event']['path'];
+				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
+				$result_cam = httpQuery($url_cam, 'GET');
+				$return_cam = sdk_json_decode($result_cam);
+				$list_enable = "";
+				foreach($return_cam['data']['cameras'] as $cam){
+					$id_cam = $cam['id'];
+					if($cam['enabled'] == 1 ) {
+						$url_dis = $http."://".$server."/webapi/".$pathevent."?version=".$vCameraEvent."&api=SYNO.SurveillanceStation.Camera.Event&method=MDParamSave&keep=true&source=-1&_sid=".$sid."&camId=".$id_cam;
+						$result_dis = httpQuery($url_dis, 'GET');
+					}
+				}
+				$xml .= $result_dis;
+			}
+			if ($value == "allmdenable") {
+				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera.Event";
+				$result_api = httpQuery($url_api, 'GET');
+				$return_api = sdk_json_decode($result_api);
+				$pathevent = $return_api['data']['SYNO.SurveillanceStation.Camera.Event']['path'];
+				$url_cam = $http."://".$server."/webapi/".$path."?privCamType=3&version=".$vCamera."&blIncludeDeletedCam=false&streamInfo=false&api=SYNO.SurveillanceStation.Camera&basic=true&method=List&_sid=".$sid;
+				$result_cam = httpQuery($url_cam, 'GET');
+				$return_cam = sdk_json_decode($result_cam);
+				$list_enable = "";
+				foreach($return_cam['data']['cameras'] as $cam){
+					$id_cam = $cam['id'];
+					if($cam['enabled'] == 1 ) {
+						$url_ena = $http."://".$server."/webapi/".$pathevent."?version=".$vCameraEvent."&api=SYNO.SurveillanceStation.Camera.Event&method=MDParamSave&keep=true&source=1&_sid=".$sid."&camId=".$id_cam;
+						$result_ena = httpQuery($url_ena, 'GET');
+					}
+				}
 				$xml .= $result_ena;
+			}
+			if ($value == "mddisable") {
+				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera.Event";
+				$result_api = httpQuery($url_api, 'GET');
+				$return_api = sdk_json_decode($result_api);
+				$pathevent = $return_api['data']['SYNO.SurveillanceStation.Camera.Event']['path'];
+				$url_dis = $http."://".$server."/webapi/".$pathevent."?version=".$vCameraEvent."&api=SYNO.SurveillanceStation.Camera.Event&method=MDParamSave&keep=true&source=-1&_sid=".$sid."&camId=".$camid;
+				$result_dis = httpQuery($url_dis, 'GET');
+				$return_dis = sdk_json_decode($result_dis);
+				if($return_dis['success'] != 1){
+					if($return_dis['success'] == 0){
+						$xml .= "<STATUS>Error Camera Event code ".$return_dis['error']['code']." ".$tab_error_auth[$return_dis['error']['code']]."</STATUS>";
+					} else {
+						$xml .= $result_dis;
+					}
+				} else {
+					$xml .= $result_dis;
+				}
+			}
+			if ($value == "mdenable") {
+				$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera.Event";
+				$result_api = httpQuery($url_api, 'GET');
+				$return_api = sdk_json_decode($result_api);
+				$pathevent = $return_api['data']['SYNO.SurveillanceStation.Camera.Event']['path'];
+				$url_ena = $http."://".$server."/webapi/".$pathevent."?version=".$vCameraEvent."&api=SYNO.SurveillanceStation.Camera.Event&method=MDParamSave&keep=true&source=1&_sid=".$sid."&camId=".$camid;
+				$result_ena = httpQuery($url_ena, 'GET');
+				$return_ena = sdk_json_decode($result_ena);
+				if($return_ena['success'] != 1){
+					if($return_ena['success'] == 0){
+						$xml .= "<STATUS>Error Camera Event code ".$return_ena['error']['code']." ".$tab_error_auth[$return_ena['error']['code']]."</STATUS>";
+					} else {
+						$xml .= $result_ena;
+					}
+				} else {
+					$xml .= $result_ena;
+				}
 			}
 		}
 		// PTZ status

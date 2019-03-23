@@ -6,6 +6,7 @@ Contrôle du Synology Surveillance Station depuis eedomus
 Déclencher depuis eedomus l'enregistrement d'une ou plusieurs caméras.  
 Transmettre un snapshot sur un ftp eedomus.  
 Enable/Disable les caméras.  
+Enable/Disable la détection de mouvement (celle de Surveillance Station).     
 Contrôler les caméras PTZ.  
 Monitorer les ressources du NAS Synology.  
   
@@ -44,9 +45,26 @@ Vous pouvez connaître la version du Surveillance Station et les informations dét
   
   
 NB1 : Pour les périphériques liées aux caméras, l'utilisateur Synology utilisé doit être habilité a minima à l'application Surveillance Station.  
-NB2 : Pour les périphériques liées au Monitoring et aux actions Reboot/Shutdwon, l'utilisateur doit faire partie du groupe d'administrateurs.  
+NB2 : Pour les périphériques liées au Monitoring, aux actions Reboot/Shutdwon, aux enable/disable des caméras, l'utilisateur doit avoir des privilèges supérieurs (faire partie du groupe d'administrateurs).  
 NB3 : Les caractères spéciaux # et & dans un mot de passe ne sont pas compatibles avec ce plugin. 
   
+Les codes erreurs potentiels :  
+100 Unknown error  
+101 Invalid parameters  
+102 API does not exist  
+103 Method does not exist  
+104 This API version is not supported  
+105 Insufficient user privilege  
+106 Connection time out  
+107 Multiple login detected  
+400 Invalid password    
+401 Guest or disabled account  
+402 Permission denied  
+403 One time password not specified  
+404 One time password authenticate failed  
+  
+  
+ 
 Influman 2019
 therealinfluman@gmail.com  
 [Paypal Me](https://www.paypal.me/influman "paypal.me")  
