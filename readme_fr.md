@@ -36,10 +36,19 @@ Après installation du plugin, vous pourrez :
   
 Pour l'envoi en FTP eedomus, il faut au préalable créer une caméra générique dans la configuration eedomus.  
     
+### Valeur de "camid" dans les requêtes de l'actionneur "Controle"  
+  
 Le périphérique "Statut" vous donne l'état de connexion du Surveillance Station :  
 * le nombre de caméras.  
-* les id des caméras. Si l'Id est à "x", alors la caméra n'est pas opérationnelle.  
+* mais surtout les id des caméras. L'ID réel Surveillance Station est entre parenthèses. S' il est à "x", alors la caméra n'est pas opérationnelle.  
+* Exemple : 3 Caméras - 1(2)|2(x)|3(8)
   
+Dans les requêtes de contrôle unitaire d'une caméra, la valeur "camid" doit correspondre à l'ordre d'affichage de la caméra par rapport aux id réels restitués.  
+Ainsi, pour contrôler la première caméra (id réel 2), la valeur de camid doit être égal à 1.  
+Pour contrôler la troisième caméra (id réel 8), la valeur de camid doit être égal à 3.  
+  
+  
+### Divers  
   
 Vous pouvez connaître la version du Surveillance Station et les informations détaillées des caméras dans l'XML complet via la configuration du périphérique "statut" et le lien "tester". 
   

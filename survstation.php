@@ -1,7 +1,7 @@
 <?php
 	$xml = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>";      
 	//***********************************************************************************************************************
-	// V1.3 : Surveillance Station / Influman 2019
+	// V1.4 : Surveillance Station / Influman 2019
 	//SYNO.API.Info
 	$vInfo = 1;
 	//SYNO.API.Auth
@@ -18,7 +18,7 @@
 	$action = getArg("action", true, ''); 
 	$server = getArg("server", true);
 	$value = getArg("value", false);
-	$camid = getArg("camid", false);
+	$camid_index = getArg("camid", false);
 	$presetid = getArg("presetid", false);
 	$ftp = getArg("ftp",false, '');
 	// API DU PERIPHERIQUE APPELANT LE SCRIPT
@@ -31,6 +31,7 @@
 	if ($action == '' ) {
 		die();
 	}
+	
 	$xml .= "<SURVSTATION>";
 	$tab_param = explode(",",$server);
 	$http = $tab_param[0];
@@ -137,8 +138,11 @@
 			$result_cam = httpQuery($url_cam, 'GET');
 			$return_cam = sdk_json_decode($result_cam);
 			$listcam = "";
+			$tab_cam = array();
+			$index = 0;
 			foreach($return_cam['data']['cameras'] as $cam){
 				$id_cam = $cam['id'];
+				$index++;
 				$name_cam = $cam['name'];
 				$model_cam = $cam['model'];
 				$statut_cam = $cam['camStatus'];
@@ -151,38 +155,35 @@
 				if ($cam['enabled'] != 1) {
 					$statut_cam .= "-Disabled";
 					if ($listcam == "") {
-						$listcam = "x";
+						$listcam = $index."(x)";
 					} else {
-						$listcam .= "|x";
+						$listcam .= " | ".$index."(x)";
 					}
 				} else {
 					if ($listcam == "") {
-						$listcam = $id_cam;
+						$listcam = $index."(".$id_cam.")";
 					} else {
-						$listcam .= "|".$id_cam;
+						$listcam .= " | ".$index."(".$id_cam.")";
 					}
 				}
-				$xml .= "<CAM_ID_".$id_cam.">".$name_cam." ".$resolution.$ptz." (".$statut_cam.") ".$host_cam." ".$model_cam."</CAM_ID_".$id_cam.">";
+				$xml .= "<CAM_".$index.">ID ".$id_cam." - ".$name_cam." ".$resolution.$ptz." (".$statut_cam.") ".$host_cam." ".$model_cam."</CAM_".$index.">";
+				$tab_cam[$index] = $id_cam;
 			}
 			$status = "Connected - ".$nbcam." cameras ".$listcam;
 			$xml .= "<STATUS>".$status."</STATUS>";
+			saveVariable("SURVSTATION_CAMID", $tab_cam);
 		}
-		// snapshot
-		if ($action == "showsnap") {
-			// Obtention d'un snap
-			$url_api = $http."://".$server."/webapi/query.cgi?api=SYNO.API.Info&method=Query&version=".$vInfo."&query=SYNO.SurveillanceStation.Camera";
-			$result_api = httpQuery($url_api, 'GET');
-			$return_api = sdk_json_decode($result_api);
-			$path = $return_api['data']['SYNO.SurveillanceStation.Camera']['path'];
-			$url_snap = $http."://".$server."/webapi/".$path."?api=SYNO.SurveillanceStation.Camera&method=GetSnapshot&camStm=1&preview=true&version=".$vCamera."&cameraId=".$camid."&_sid=".$sid;
-			$result_snap = httpQuery($url_snap, 'GET');
-			//logout
-			$url_logout = $http."://".$server."/webapi/".$auth_path."?api=SYNO.API.Auth&method=Logout&version=".$vAuth."&session=SurveillanceStation&_sid=".$sid;
-			$result_logout = httpQuery($url_logout, 'GET');
-			sdk_header('image/jpg');
-			echo $result_snap;
-			die();
+		
+		// Transfo camid
+		if ($camid_index != "" && is_numeric($camid_index)) {
+			$tab_cam = loadVariable("SURVSTATION_CAMID");
+			if (array_key_exists($camid_index, $tab_cam)) {
+				$camid = $tab_cam[$camid_index];
+			} else {
+				$camid = $camid_index;
+			}
 		}
+		
 		// ftp snapshot
 		if ($action == "snapftp") {
 			// Obtention d'un snap
@@ -416,13 +417,16 @@
 			$ptzcap = false;
 			$list_cam = array();
 			$i = 0;
+			$index = 0;
 			foreach($return_cam['data']['cameras'] as $cam){
+				$index++;
 				$id_cam = $cam['id'];
 				$nb_preset = $cam['presetNum'];
 				if ($cam['ptzCap'] != 0) {
 					$ptzcap = true;
 					if ($cam['enabled'] == 1) {
 						$list_cam[$i]['id'] = $id_cam;
+						$list_cam[$i]['index'] = $index;
 						$presets = "";
 						$presets_ids = "";
 						// Accès SYNO.SurveillanceStation.PTZ pour liste détaillées des presets
@@ -436,7 +440,7 @@
 							$presets .= $name_preset."(".$id_preset.") | ";
 						}
 						$list_cam[$i]['presets'] = $presets_ids;
-						$xml .= "<CAM_ID_".$id_cam.">".$nb_preset." presets ".$presets."</CAM_ID_".$id_cam.">";
+						$xml .= "<CAM_".$index.">ID ".$id_cam." - ".$nb_preset." presets ".$presets."</CAM_".$index.">";
 						$i++;
 					}
 				}
@@ -445,9 +449,9 @@
 				$status = "PTZ ";
 				foreach($list_cam as $cam) {
 					if ($cam['presets'] == "") {
-						$status .= "Cam ".$cam['id']." +*";
+						$status .= "Cam ".$cam['index']."(".$cam['id'].")"." +*";
 					} else {
-						$status .= "Cam ".$cam['id']." > ".$cam['presets']." +*";
+						$status .= "Cam ".$cam['index']."(".$cam['id'].") > ".$cam['presets']." +*";
 					}
 				}
 			} else {
